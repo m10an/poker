@@ -627,3 +627,45 @@ class TestPlayerNameWithDot:
         player_names = [p.name for p in hand.players]
         player_index = player_names.index(".prestige.U$")
         assert hand.players[player_index].stack == 3000
+
+class TestJoinedFile:
+    hand_text = '\n\n'.join([
+        stars_hands.HAND1, 
+        stars_hands.HAND2, 
+        stars_hands.HAND3, 
+        stars_hands.HAND4,
+        stars_hands.HAND5,
+    ])
+    testers = [
+        TestHandWithFlopOnly(), 
+        TestAllinPreflopHand(), 
+        TestBodyMissingPlayerNoBoard(),
+        TestBodyEveryStreet(),
+        TestPlayerNameWithDot(),
+    ]
+
+    def test_joined(self, hand):
+        for tester in self.testers:
+            for obj_name in dir(tester):
+                # get testing function
+                if not obj_name.startswith('test'):
+                    continue
+                test = getattr(tester, obj_name)
+
+                # get parametrized arguments
+                values = None
+                for mark in getattr(test, 'pytestmark', []):
+                    if mark.name == 'parametrize':
+                        _, values = mark.args
+                        break
+                if not values:
+                    continue
+                
+                # print(obj_name, '=' * 80)
+                for value in values:
+                    # print(*value)
+                    test(hand, *value)
+
+            # go to the next hand and tester
+            if not hand.parsed_full:
+                hand.parse_next()
