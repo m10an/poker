@@ -145,8 +145,7 @@ Seat 5: Samovlyblen folded before Flop (didn't bet)
 Seat 6: Theralion collected (1900)
 Seat 7: wrsport1015 folded before Flop (didn't bet)
 Seat 8: W2lkm2n (button) folded before Flop (didn't bet)
-Seat 9: fischero68 (small blind) folded before Flop
-"""
+Seat 9: fischero68 (small blind) folded before Flop"""
 
 
 HAND4 = """\
@@ -200,11 +199,11 @@ Seat 5: W2lkm2n (button) folded before Flop (didn't bet)
 Seat 6: MISTRPerfect (small blind) folded before Flop
 Seat 7: blak_douglas (big blind) folded on the River
 Seat 8: sinus91 folded before Flop (didn't bet)
-Seat 9: STBIJUJA folded before Flop (didn't bet)
-"""
+Seat 9: STBIJUJA folded before Flop (didn't bet)"""
 
 
-HAND5 = """PokerStars Hand #105039163226: Tournament #797613600, $3.19+$0.31 USD Hold'em No Limit - Level I (10/20) - 2013/10/05 1:18:18 CET [2013/10/04 19:18:18 ET]
+HAND5 = """\
+PokerStars Hand #105039163226: Tournament #797613600, $3.19+$0.31 USD Hold'em No Limit - Level I (10/20) - 2013/10/05 1:18:18 CET [2013/10/04 19:18:18 ET]
 Table '797613600 9' 9-max Seat #1 is the button
 Seat 1: pjo80 (1500 in chips)
 Seat 2: Brimill (3000 in chips)
