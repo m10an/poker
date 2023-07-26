@@ -201,9 +201,10 @@ class PokerStarsHandHistory(hh._SplittableHandHistoryMixin, hh._BaseHandHistory)
         self._parse_board()
         self._parse_winners()
 
-        # self._del_split_vars()
         self.parsed = True
         self.parsed_full = self._next_header is None
+        if self.parsed_full:
+            self._del_split_vars()
     
     def parse_next(self):
         self._first_section = self._next_header+1
