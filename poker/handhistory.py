@@ -97,7 +97,10 @@ class _BaseStreet:
         self.cards = None
         self._parse_cards(flop[0])
         self._parse_actions(flop[1:])
-        self._all_combinations = itertools.combinations(self.cards, 2)
+
+    @property
+    def _all_combinations(self):
+        return itertools.combinations(self.cards, 2)
 
     @cached_property
     def is_rainbow(self):
