@@ -122,8 +122,14 @@ class PokerStarsHandHistory(hh._SplittableHandHistoryMixin, hh._BaseHandHistory)
         # sections[0] is before HOLE CARDS
         # sections[-1] is before SUMMARY
         self._split_raw()
+        self._init_multi_parse()
 
-        match = self._header_re.match(self._splitted[0])
+        match = self._header_re.match(self._splitted[self._first_line_idx])
+
+        for i in range(self._first_section+1, len(self._sections)):
+            if self._header_re.match(self._splitted[self._sections[i]+1]) is not None:
+                self._next_header = i
+                break
 
         self.extra = dict()
         self.ident = match.group("ident")
@@ -168,10 +174,19 @@ class PokerStarsHandHistory(hh._SplittableHandHistoryMixin, hh._BaseHandHistory)
 
         self.header_parsed = True
 
+    def _init_multi_parse(self):
+        if not hasattr(self, '_next_header'):
+            self._next_header = None
+        if not hasattr(self, '_first_section'):
+            self._first_section = 0
+        if not hasattr(self, '_first_line_idx'):
+            self._first_line_idx = 0
+
     def parse(self):
         """Parses the body of the hand history, but first parse header if not yet parsed."""
-        if not self.header_parsed:
-            self.parse_header()
+        
+        self._init_multi_parse()
+        self.parse_header()
 
         self._parse_table()
         self._parse_players()
@@ -186,17 +201,36 @@ class PokerStarsHandHistory(hh._SplittableHandHistoryMixin, hh._BaseHandHistory)
         self._parse_board()
         self._parse_winners()
 
-        self._del_split_vars()
         self.parsed = True
+        self.parsed_full = self._next_header is None
+        if self.parsed_full:
+            self._del_split_vars()
+    
+    def parse_next(self):
+        self._first_section = self._next_header+1
+        self._first_line_idx = self._sections[self._next_header]+1
+        self._next_header = None
+        self.parse()
+
+    def _get_last_section(self):
+        return self._sections[self._next_header-1 if self._next_header else -1]
+    
+    def _get_last_line_idx(self):
+        if self._next_header:
+            return self._sections[self._next_header]-1
+        return len(self._splitted)-1
+    
+    def _get_index_range(self):
+        return self._first_line_idx, self._get_last_line_idx()+1
 
     def _parse_table(self):
-        self._table_match = self._table_re.match(self._splitted[1])
+        self._table_match = self._table_re.match(self._splitted[self._first_line_idx+1])
         self.table_name = self._table_match.group(1)
         self.max_players = int(self._table_match.group(2))
 
     def _parse_players(self):
         self.players = self._init_seats(self.max_players)
-        for line in self._splitted[2:]:
+        for line in self._splitted[self._first_line_idx+2:]:
             match = self._seat_re.match(line)
             # we reached the end of the players section
             if not match:
@@ -214,7 +248,7 @@ class PokerStarsHandHistory(hh._SplittableHandHistoryMixin, hh._BaseHandHistory)
         self.button = self.players[button_seat - 1]
 
     def _parse_hero(self):
-        hole_cards_line = self._splitted[self._sections[0] + 2]
+        hole_cards_line = self._splitted[self._sections[self._first_section] + 2]
         match = self._hero_re.match(hole_cards_line)
         hero, hero_index = self._get_hero_from_players(match.group("hero_name"))
         hero.combo = Combo(match.group(2) + match.group(3))
@@ -223,13 +257,13 @@ class PokerStarsHandHistory(hh._SplittableHandHistoryMixin, hh._BaseHandHistory)
             self.button = hero
 
     def _parse_preflop(self):
-        start = self._sections[0] + 3
-        stop = self._sections[1]
+        start = self._sections[self._first_section] + 3
+        stop = self._sections[self._first_section+1]
         self.preflop_actions = tuple(self._splitted[start:stop])
 
     def _parse_flop(self):
         try:
-            start = self._splitted.index("FLOP") + 1
+            start = self._splitted.index("FLOP", *self._get_index_range()) + 1
         except ValueError:
             self.flop = None
             return
@@ -239,7 +273,7 @@ class PokerStarsHandHistory(hh._SplittableHandHistoryMixin, hh._BaseHandHistory)
 
     def _parse_street(self, street):
         try:
-            start = self._splitted.index(street.upper()) + 2
+            start = self._splitted.index(street.upper(), *self._get_index_range()) + 2
             stop = self._splitted.index("", start)
             street_actions = self._splitted[start:stop]
             setattr(
@@ -252,15 +286,20 @@ class PokerStarsHandHistory(hh._SplittableHandHistoryMixin, hh._BaseHandHistory)
             setattr(self, f"{street.lower()}_actions", None)
 
     def _parse_showdown(self):
-        self.show_down = "SHOW DOWN" in self._splitted
+        try:
+            self.show_down = True
+            self._splitted.index("SHOW DOWN", *self._get_index_range())
+        except ValueError:
+            self.show_down = False
+            return
 
     def _parse_pot(self):
-        potline = self._splitted[self._sections[-1] + 2]
+        potline = self._splitted[self._get_last_section() + 2]
         match = self._pot_re.match(potline)
         self.total_pot = int(match.group(1))
 
     def _parse_board(self):
-        boardline = self._splitted[self._sections[-1] + 3]
+        boardline = self._splitted[self._get_last_section() + 3]
         if not boardline.startswith("Board"):
             return
         cards = self._board_re.findall(boardline)
@@ -269,8 +308,13 @@ class PokerStarsHandHistory(hh._SplittableHandHistoryMixin, hh._BaseHandHistory)
 
     def _parse_winners(self):
         winners = set()
-        start = self._sections[-1] + 4
-        for line in self._splitted[start:]:
+        start = self._get_last_section()
+        end = (
+            self._sections[self._next_header] 
+            if self._next_header
+            else len(self._splitted)
+        )
+        for line in self._splitted[start+4:end]:
             if not self.show_down and "collected" in line:
                 match = self._winner_re.match(line)
                 winners.add(match.group(2))
